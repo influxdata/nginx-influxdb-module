@@ -117,7 +117,8 @@ static ngx_http_module_t ngx_http_influxdb_module_ctx = {
         NULL,                          /* preconfiguration */
         ngx_http_influxdb_init,        /* postconfiguration */
 
-        NULL,                          /* create main configuration */ NULL,                          /* init main configuration */
+        NULL,                          /* create main configuration */
+        NULL,                          /* init main configuration */
 
         NULL,                          /* create server configuration */
         NULL,                          /* merge server configuration */
