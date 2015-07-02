@@ -3,6 +3,7 @@
 #include <ngx_http.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <stdio.h>
 
 typedef struct {
     char *method;
@@ -52,9 +53,9 @@ ngx_http_influxdb_ssl_handshake_time(ngx_http_request_t *req)
 }
 
 static metric_t *
-metric_alloc_from_request(ngx_http_request_t *req)
+metric_init(ngx_http_request_t *req)
 {
-    metric_t *metric = malloc(sizeof(metric_t));
+    metric_t *metric = ngx_palloc(req->pool, sizeof(metric_t));
     metric->method = ngx_http_influxdb_method_to_name(req->method);
     metric->status = req->headers_out.status;
     metric->bytes_sent = req->connection->sent;
@@ -78,14 +79,19 @@ push_metric(metric_t *m)
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
     servaddr.sin_port = htons(32000);
-    char *buf = m->method;
+
+    char buf[255];
+    sprintf(buf,
+            "request,method=%s,bytes_sent=%zd,status=%zd,request_length=%zd,ssl_handshake_time=%d,header_bytes_sent=%zd,body_bytes=%d",
+            m->method, m->bytes_sent, m->status, m->request_length, m->ssl_handshake_time, m->header_bytes_sent, m->body_bytes);
+
     sendto(sockfd, buf, strlen(buf), 0, &servaddr, sizeof(servaddr));
 }
 
 static ngx_int_t
 ngx_http_influxdb_handler(ngx_http_request_t *req)
 {
-    metric_t *m = metric_alloc_from_request(req);
+    metric_t *m = metric_init(req);
     push_metric(m);
     return NGX_OK;
 }
