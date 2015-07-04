@@ -3,14 +3,16 @@
 #include <ngx_http.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <stdio.h>
+#include <string.h>
 
 typedef struct {
     char *method;
     ngx_uint_t status;
-    off_t bytes_sent;
+    off_t total_bytes_sent;
     size_t header_bytes_sent;
-    int body_bytes;
+    size_t body_bytes_sent;
     off_t request_length;
     int ssl_handshake_time;
 } metric_t;
@@ -34,8 +36,8 @@ static char *ngx_http_influxdb_method_to_name(ngx_uint_t method)
         case NGX_HTTP_UNLOCK       : return "UNLOCK";
         case NGX_HTTP_PATCH        : return "PATCH";
         case NGX_HTTP_TRACE        : return "TRACE";
+        default                    : return NULL;
     }
-    return NULL;
 }
 
 static int
@@ -52,14 +54,15 @@ ngx_http_influxdb_ssl_handshake_time(ngx_http_request_t *req)
     return 0;
 }
 
+
 static metric_t *
 metric_init(ngx_http_request_t *req)
 {
     metric_t *metric = ngx_palloc(req->pool, sizeof(metric_t));
     metric->method = ngx_http_influxdb_method_to_name(req->method);
     metric->status = req->headers_out.status;
-    metric->bytes_sent = req->connection->sent;
-    metric->body_bytes = req->connection->sent - req->header_size;
+    metric->total_bytes_sent = req->connection->sent;
+    metric->body_bytes_sent = req->connection->sent - req->header_size;
     metric->header_bytes_sent = req->header_size;
     metric->request_length = req->request_length;
     metric->ssl_handshake_time = ngx_http_influxdb_ssl_handshake_time(req);
@@ -78,14 +81,14 @@ push_metric(metric_t *m)
 
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    servaddr.sin_port = htons(32000);
+    servaddr.sin_port = htons(4444);
 
     char buf[255];
-    sprintf(buf,
-            "request,method=%s,bytes_sent=%zd,status=%zd,request_length=%zd,ssl_handshake_time=%d,header_bytes_sent=%zd,body_bytes=%d",
-            m->method, m->bytes_sent, m->status, m->request_length, m->ssl_handshake_time, m->header_bytes_sent, m->body_bytes);
 
-    sendto(sockfd, buf, strlen(buf), 0, &servaddr, sizeof(servaddr));
+    sprintf(buf,
+            "request,host=serverA method=\"%s\",status=%zd,total_bytes_sent=%zd,body_bytes_sent=%zd,header_bytes_sent=%zd,request_length=%zd,ssl_handshake_time=%d",
+            m->method, m->status, m->total_bytes_sent, m->body_bytes_sent, m->header_bytes_sent, m->request_length, m->ssl_handshake_time);
+    sendto(sockfd, buf, strlen(buf), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
 }
 
 static ngx_int_t
