@@ -6,16 +6,88 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
+#include <ngx_string.h>
 
 typedef struct {
+    ngx_http_request_t *req;
     char *method;
     ngx_uint_t status;
     off_t total_bytes_sent;
     size_t header_bytes_sent;
     size_t body_bytes_sent;
     off_t request_length;
-    int ssl_handshake_time;
+    ngx_uint_t ssl_handshake_time;
 } metric_t;
+
+
+typedef struct {
+    ngx_str_t host;
+    ngx_uint_t port;
+    ngx_str_t measurement;
+} ngx_http_influxdb_loc_conf_t;
+
+static ngx_int_t ngx_http_influxdb_init(ngx_conf_t *conf);
+static void * ngx_http_influxdb_create_loc_conf(ngx_conf_t *conf);
+static char * ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent, void *child);
+static char * ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static void ngx_influxdb_exit(ngx_cycle_t *cycle);
+
+static ngx_http_module_t ngx_http_influxdb_module_ctx = {
+        NULL,                                    /* preconfiguration */
+        ngx_http_influxdb_init,                  /* postconfiguration */
+
+        NULL,                                    /* create main configuration */
+        NULL,                                    /* init main configuration */
+
+        NULL,                                    /* create server configuration */
+        NULL,                                    /* merge server configuration */
+
+        ngx_http_influxdb_create_loc_conf,       /* create location configuration */
+        ngx_http_influxdb_merge_loc_conf         /* merge location configuration */
+};
+
+static ngx_command_t ngx_http_influxdb_commands[] = {
+        {
+                ngx_string("influxdb"),
+                NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
+                ngx_http_influxdb,
+                NGX_HTTP_LOC_CONF_OFFSET,
+                0,
+                NULL
+        },
+        {
+                ngx_string("host"),
+                NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+                ngx_conf_set_num_slot,
+                NGX_HTTP_LOC_CONF_OFFSET,
+                offsetof(ngx_http_influxdb_loc_conf_t, host),
+                NULL
+        },
+        {
+                ngx_string("port"),
+                NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
+                ngx_conf_set_num_slot,
+                NGX_HTTP_LOC_CONF_OFFSET,
+                offsetof(ngx_http_influxdb_loc_conf_t, port),
+                NULL
+        },
+};
+
+ngx_module_t ngx_http_influxdb_module = {
+        NGX_MODULE_V1,
+        &ngx_http_influxdb_module_ctx,  /* module context */
+        ngx_http_influxdb_commands,     /* module directives */
+        NGX_HTTP_MODULE,                /* module type */
+        NULL,                           /* init master */
+        NULL,                           /* init module */
+        NULL,                           /* init process */
+        NULL,                           /* init thread */
+        NULL,                           /* exit thread */
+        NULL,                           /* exit process */
+        ngx_influxdb_exit,              /* exit master */
+        NGX_MODULE_V1_PADDING
+};
+
 
 static char *ngx_http_influxdb_method_to_name(ngx_uint_t method)
 {
@@ -40,7 +112,7 @@ static char *ngx_http_influxdb_method_to_name(ngx_uint_t method)
     }
 }
 
-static int
+static ngx_uint_t
 ngx_http_influxdb_ssl_handshake_time(ngx_http_request_t *req)
 {
 #if(NGX_SSL)
@@ -59,6 +131,7 @@ static metric_t *
 metric_init(ngx_http_request_t *req)
 {
     metric_t *metric = ngx_palloc(req->pool, sizeof(metric_t));
+    metric->req = req;
     metric->method = ngx_http_influxdb_method_to_name(req->method);
     metric->status = req->headers_out.status;
     metric->total_bytes_sent = req->connection->sent;
@@ -70,8 +143,12 @@ metric_init(ngx_http_request_t *req)
 }
 
 static void
-push_metric(metric_t *m)
+metric_push(metric_t *m)
 {
+    ngx_http_influxdb_loc_conf_t *conf;
+    conf = ngx_http_get_module_loc_conf(m->req, ngx_http_influxdb_module);
+
+
     int sockfd;
     struct sockaddr_in servaddr;
 
@@ -80,14 +157,14 @@ push_metric(metric_t *m)
     bzero(&servaddr, sizeof(servaddr));
 
     servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    servaddr.sin_port = htons(4444);
+    servaddr.sin_addr.s_addr = inet_addr((const char *) conf->host.data);
+    servaddr.sin_port = htons((uint16_t) conf->port);
 
     char buf[255];
 
     sprintf(buf,
-            "request,host=serverA method=\"%s\",status=%zd,total_bytes_sent=%zd,body_bytes_sent=%zd,header_bytes_sent=%zd,request_length=%zd,ssl_handshake_time=%d",
-            m->method, m->status, m->total_bytes_sent, m->body_bytes_sent, m->header_bytes_sent, m->request_length, m->ssl_handshake_time);
+            "%s,host=serverA method=\"%s\",status=%ld,total_bytes_sent=%jd,body_bytes_sent=%zu,header_bytes_sent=%zu,request_length=%zd,ssl_handshake_time=%ld",
+            conf->measurement.data, m->method, m->status, m->total_bytes_sent, (intmax_t ) m->body_bytes_sent, m->header_bytes_sent, m->request_length, m->ssl_handshake_time);
     sendto(sockfd, buf, strlen(buf), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
 }
 
@@ -95,8 +172,48 @@ static ngx_int_t
 ngx_http_influxdb_handler(ngx_http_request_t *req)
 {
     metric_t *m = metric_init(req);
-    push_metric(m);
+    metric_push(m);
     return NGX_OK;
+}
+
+static void
+ngx_influxdb_exit(ngx_cycle_t *cycle)
+{
+}
+
+static void *
+ngx_http_influxdb_create_loc_conf(ngx_conf_t *conf)
+{
+    ngx_http_influxdb_loc_conf_t *cf;
+    cf = ngx_palloc(conf->pool, sizeof(ngx_http_influxdb_loc_conf_t));
+    if (cf == NULL) {
+        return NGX_CONF_ERROR;
+    }
+
+    cf->port = NGX_CONF_UNSET_UINT;
+    return cf;
+}
+
+static char *
+ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent, void *child)
+{
+    ngx_http_influxdb_loc_conf_t *prev = parent;
+    ngx_http_influxdb_loc_conf_t *cf = child;
+
+    ngx_conf_merge_str_value(cf->host, prev->host, "127.0.0.1");
+    ngx_conf_merge_uint_value(cf->port, prev->port, 4444);
+    ngx_conf_merge_str_value(cf->measurement, prev->measurement, "nginx");
+
+    return NGX_CONF_OK;
+}
+
+static char *
+ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+//    ngx_http_core_loc_conf_t *clconf;
+//    clconf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    //TODO: do some configuration checks
+    return NGX_CONF_OK;
 }
 
 static ngx_int_t
@@ -117,37 +234,4 @@ ngx_http_influxdb_init(ngx_conf_t *conf)
     return NGX_OK;
 }
 
-static void
-ngx_influxdb_exit(ngx_cycle_t *cycle)
-{
-}
 
-static ngx_http_module_t ngx_http_influxdb_module_ctx = {
-        NULL,                          /* preconfiguration */
-        ngx_http_influxdb_init,        /* postconfiguration */
-
-        NULL,                          /* create main configuration */
-        NULL,                          /* init main configuration */
-
-        NULL,                          /* create server configuration */
-        NULL,                          /* merge server configuration */
-
-        NULL,                          /* create location configuration */
-        NULL                           /* merge location configuration */
-};
-
-
-ngx_module_t ngx_http_influxdb_module = {
-        NGX_MODULE_V1,
-        &ngx_http_influxdb_module_ctx,  /* module context */
-        NULL,                           /* module directives */
-        NGX_HTTP_MODULE,                /* module type */
-        NULL,                           /* init master */
-        NULL,                           /* init module */
-        NULL,                           /* init process */
-        NULL,                           /* init thread */
-        NULL,                           /* exit thread */
-        NULL,                           /* exit process */
-        ngx_influxdb_exit,              /* exit master */
-        NGX_MODULE_V1_PADDING
-};
