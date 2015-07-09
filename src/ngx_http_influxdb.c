@@ -26,11 +26,11 @@ typedef struct {
     ngx_str_t measurement;
 } ngx_http_influxdb_loc_conf_t;
 
-static ngx_int_t ngx_http_influxdb_init(ngx_conf_t *conf);
 static void * ngx_http_influxdb_create_loc_conf(ngx_conf_t *conf);
 static char * ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent, void *child);
 static char * ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static void ngx_influxdb_exit(ngx_cycle_t *cycle);
+static ngx_int_t ngx_http_influxdb_init(ngx_conf_t *conf);
 
 static ngx_http_module_t ngx_http_influxdb_module_ctx = {
         NULL,                                    /* preconfiguration */
@@ -49,26 +49,10 @@ static ngx_http_module_t ngx_http_influxdb_module_ctx = {
 static ngx_command_t ngx_http_influxdb_commands[] = {
         {
                 ngx_string("influxdb"),
-                NGX_HTTP_LOC_CONF | NGX_CONF_NOARGS,
+                NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_1MORE,
                 ngx_http_influxdb,
                 NGX_HTTP_LOC_CONF_OFFSET,
                 0,
-                NULL
-        },
-        {
-                ngx_string("host"),
-                NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
-                ngx_conf_set_num_slot,
-                NGX_HTTP_LOC_CONF_OFFSET,
-                offsetof(ngx_http_influxdb_loc_conf_t, host),
-                NULL
-        },
-        {
-                ngx_string("port"),
-                NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF | NGX_CONF_TAKE1,
-                ngx_conf_set_num_slot,
-                NGX_HTTP_LOC_CONF_OFFSET,
-                offsetof(ngx_http_influxdb_loc_conf_t, port),
                 NULL
         },
 };
@@ -207,18 +191,9 @@ ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent, void *child)
     return NGX_CONF_OK;
 }
 
-static char *
-ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
-{
-//    ngx_http_core_loc_conf_t *clconf;
-//    clconf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
-    //TODO: do some configuration checks
-    return NGX_CONF_OK;
-}
 
 static ngx_int_t
-ngx_http_influxdb_init(ngx_conf_t *conf)
-{
+ngx_http_influxdb_init(ngx_conf_t *conf) {
     ngx_http_handler_pt        *h;
     ngx_http_core_main_conf_t  *cmcf;
 
@@ -234,4 +209,33 @@ ngx_http_influxdb_init(ngx_conf_t *conf)
     return NGX_OK;
 }
 
+static char *
+ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_influxdb_loc_conf_t  *ulcf = conf;
+    ngx_str_t                   *value;
 
+    value = cf->args->elts;
+
+    ngx_uint_t i;
+    for (i = 1; i < cf->args->nelts; i++) {
+        if (ngx_strncmp(value[i].data, "measurement=", ngx_strlen("measurement=")) == 0) {
+            ulcf->measurement.data = &value[i].data[ngx_strlen("measurement=")];
+            ulcf->measurement.len = ngx_strlen(&value[i].data[ngx_strlen("measurement=")]);
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "host=", ngx_strlen("host=")) == 0) {
+            ulcf->host.data = &value[i].data[ngx_strlen("host=")];
+            ulcf->host.len = ngx_strlen(&value[i].data[ngx_strlen("host=")]);
+            continue;
+        }
+
+        if (ngx_strncmp(value[i].data, "port=", ngx_strlen("port=")) == 0) {
+            ulcf->port = (ngx_uint_t) ngx_atoi(&value[i].data[ngx_strlen("port=")], ngx_strlen(&value[i].data[ngx_strlen("port=")]));
+            continue;
+        }
+    }
+
+    return NGX_CONF_OK;
+}
