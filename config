@@ -1,3 +1,7 @@
 nginx_addon_name=ngx_http_influxdb
-HTTP_MODULES="$HTTP_MODULES ngx_http_influxdb_module"
-NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/src/ngx_http_influxdb.c"
+ngx_module_type=HTTP
+ngx_module_name=ngx_http_influxdb_module
+ngx_module_srcs="$ngx_addon_dir/src/ngx_http_influxdb.c $ngx_addon_dir/src/ngx_http_influxdb_metric.c"
+ngx_module_deps="$ngx_addon_dir/src/ngx_http_influxdb_metric.h"
+
+. auto/module
