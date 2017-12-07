@@ -1,84 +1,105 @@
+#include <arpa/inet.h>
+#include <inttypes.h>
+#include <netinet/in.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include "ngx_http_influxdb_metric.h"
 
-static char *ngx_http_influxdb_method_to_name(ngx_uint_t method)
-{
-    switch (method)
-    {
+static char *ngx_http_influxdb_method_to_name(ngx_uint_t method) {
+  switch (method) {
     case NGX_HTTP_UNKNOWN:
-        return "UNKNOWN";
+      return "UNKNOWN";
     case NGX_HTTP_GET:
-        return "GET";
+      return "GET";
     case NGX_HTTP_HEAD:
-        return "HEAD";
+      return "HEAD";
     case NGX_HTTP_POST:
-        return "POST";
+      return "POST";
     case NGX_HTTP_PUT:
-        return "PUT";
+      return "PUT";
     case NGX_HTTP_DELETE:
-        return "DELETE";
+      return "DELETE";
     case NGX_HTTP_MKCOL:
-        return "MKCOL";
+      return "MKCOL";
     case NGX_HTTP_COPY:
-        return "COPY";
+      return "COPY";
     case NGX_HTTP_MOVE:
-        return "MOVE";
+      return "MOVE";
     case NGX_HTTP_OPTIONS:
-        return "OPTIONS";
+      return "OPTIONS";
     case NGX_HTTP_PROPFIND:
-        return "PROPFIND";
+      return "PROPFIND";
     case NGX_HTTP_PROPPATCH:
-        return "PROPPATCH";
+      return "PROPPATCH";
     case NGX_HTTP_LOCK:
-        return "LOCK";
+      return "LOCK";
     case NGX_HTTP_UNLOCK:
-        return "UNLOCK";
+      return "UNLOCK";
     case NGX_HTTP_PATCH:
-        return "PATCH";
+      return "PATCH";
     case NGX_HTTP_TRACE:
-        return "TRACE";
+      return "TRACE";
     default:
-        return NULL;
-    }
+      return NULL;
+  }
 }
 
-void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric, ngx_http_request_t *req)
-{
-    metric->method = ngx_http_influxdb_method_to_name(req->method);
-    metric->status = req->headers_out.status;
-    //(todo)[anyone]> Server name here
-    metric->server_name = "default";
-    metric->total_bytes_sent = req->connection->sent;
-    metric->body_bytes_sent = req->connection->sent - req->header_size;
-    metric->header_bytes_sent = req->header_size;
-    metric->request_length = req->request_length;
+void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
+                                   ngx_http_request_t *req) {
+  metric->method = ngx_http_influxdb_method_to_name(req->method);
+  metric->status = req->headers_out.status;
+  // TODO(fntlnz): Find a proper server name to be used here (configuration?)
+  metric->server_name = "default";
+  metric->total_bytes_sent = req->connection->sent;
+  metric->header_bytes_sent = req->header_size;
+  metric->request_length = req->request_length;
 }
 
-void ngx_http_influxdb_metric_push(ngx_http_influxdb_metric_t *m, const char *host, uint16_t port, const char *measurement)
-{
-    int sockfd;
-    struct sockaddr_in servaddr;
+ngx_int_t ngx_http_influxdb_metric_push(ngx_http_request_t *r,
+                                        ngx_http_influxdb_metric_t *m,
+                                        ngx_str_t host, uint16_t port,
+                                        ngx_str_t measurement) {
+  int sockfd;
+  struct sockaddr_in servaddr;
 
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+  sockfd = socket(AF_INET, SOCK_DGRAM, 0);
 
-    bzero(&servaddr, sizeof(servaddr));
+  bzero(&servaddr, sizeof(servaddr));
 
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr(host);
-    servaddr.sin_port = htons((uint16_t)port);
+  servaddr.sin_family = AF_INET;
+  servaddr.sin_addr.s_addr = inet_addr(host.data);
+  servaddr.sin_port = htons((uint16_t)port);
 
-    char buf[255];
+  ngx_buf_t *buf = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
+  if (buf == NULL) {
+    return INFLUXDB_METRIC_ERR;
+  }
 
-    sprintf(buf,
-            "%s,host=%s,method=%s status=%ld,total_bytes_sent=%jd,body_bytes_sent=%zu,header_bytes_sent=%zu,request_length=%zd",
-            measurement, m->server_name, m->method, m->status, m->total_bytes_sent, (intmax_t)m->body_bytes_sent, m->header_bytes_sent, m->request_length);
-    sendto(sockfd, buf, strlen(buf), 0, (const struct sockaddr *)&servaddr, sizeof(servaddr));
+  buf->pos = ngx_palloc(r->pool, 512);  // TODO(fntlnz): find a proper size
+  if (buf->pos == NULL) {
+    return INFLUXDB_METRIC_ERR;
+  }
+
+  buf->last = ngx_sprintf(buf->pos,
+                          "%s,server_name=%s,method=%s "
+                          "status=%l,total_bytes_sent=%l,header_"
+                          "bytes_sent=%l,request_length=%l",
+                          measurement.data, m->server_name, m->method,
+                          m->status, (intmax_t)m->total_bytes_sent,
+                          m->header_bytes_sent, m->request_length);
+
+  ssize_t sentlen =
+      sendto(sockfd, buf->pos, strlen(buf->pos), 0,
+             (const struct sockaddr *)&servaddr, sizeof(servaddr));
+
+  if (sentlen < 0) {
+    return INFLUXDB_METRIC_ERR;
+  }
+
+  return INFLUXDB_METRIC_OK;
 }
