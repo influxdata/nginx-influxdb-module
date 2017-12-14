@@ -75,27 +75,28 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_http_request_t *r,
   servaddr.sin_addr.s_addr = inet_addr(host.data);
   servaddr.sin_port = htons((uint16_t)port);
 
-  ngx_buf_t *buf = ngx_pcalloc(r->pool, sizeof(ngx_buf_t));
+  ngx_buf_t *buf = ngx_create_temp_buf(
+      r->pool,
+      512);  // todo: calculate a proper size see
+             // https://github.com/nginx/nginx/blob/b992f7259ba4763178f9d394b320bcc5de88818b/src/http/modules/ngx_http_stub_status_module.c#L116
   if (buf == NULL) {
+    close(sockfd);
     return INFLUXDB_METRIC_ERR;
   }
 
-  buf->pos = ngx_palloc(r->pool, 512);  // TODO(fntlnz): find a proper size
-  if (buf->pos == NULL) {
-    return INFLUXDB_METRIC_ERR;
-  }
-
-  buf->last = ngx_sprintf(buf->pos,
-                          "%s,server_name=%s,method=%s "
-                          "status=%l,total_bytes_sent=%l,header_"
-                          "bytes_sent=%l,request_length=%l",
-                          measurement.data, m->server_name, m->method,
-                          m->status, (intmax_t)m->total_bytes_sent,
-                          m->header_bytes_sent, m->request_length);
+  (void)ngx_sprintf(buf->pos,
+                    "%s,server_name=%s,method=%s "
+                    "status=%l,total_bytes_sent=%l,header_"
+                    "bytes_sent=%l,request_length=%l",
+                    measurement.data, m->server_name, m->method, m->status,
+                    (intmax_t)m->total_bytes_sent, m->header_bytes_sent,
+                    m->request_length);
 
   ssize_t sentlen =
       sendto(sockfd, buf->pos, strlen(buf->pos), 0,
              (const struct sockaddr *)&servaddr, sizeof(servaddr));
+
+  close(sockfd);
 
   if (sentlen < 0) {
     return INFLUXDB_METRIC_ERR;
