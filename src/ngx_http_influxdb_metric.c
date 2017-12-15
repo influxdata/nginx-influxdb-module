@@ -10,7 +10,7 @@
 
 #include "ngx_http_influxdb_metric.h"
 
-static char *ngx_http_influxdb_method_to_name(ngx_uint_t method) {
+static char *method_to_name(ngx_uint_t method) {
   switch (method) {
     case NGX_HTTP_UNKNOWN:
       return "UNKNOWN";
@@ -51,7 +51,7 @@ static char *ngx_http_influxdb_method_to_name(ngx_uint_t method) {
 
 void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
                                    ngx_http_request_t *req) {
-  metric->method = ngx_http_influxdb_method_to_name(req->method);
+  metric->method = method_to_name(req->method);
   metric->status = req->headers_out.status;
   // TODO(fntlnz): Find a proper server name to be used here (configuration?)
   metric->server_name = "default";
@@ -75,10 +75,14 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_http_request_t *r,
   servaddr.sin_addr.s_addr = inet_addr(host.data);
   servaddr.sin_port = htons((uint16_t)port);
 
-  ngx_buf_t *buf = ngx_create_temp_buf(
-      r->pool,
-      512);  // todo: calculate a proper size see
-             // https://github.com/nginx/nginx/blob/b992f7259ba4763178f9d394b320bcc5de88818b/src/http/modules/ngx_http_stub_status_module.c#L116
+  size_t len = sizeof(measurement) + sizeof("server_name=") +
+               sizeof(m->server_name) + sizeof(",method=") + sizeof(m->method) +
+               sizeof(" status=") + NGX_INT_T_LEN +
+               sizeof(",total_bytes_sent=") + NGX_INT_T_LEN +
+               sizeof(",header_bytes_sent=") + NGX_INT_T_LEN +
+               sizeof(",request_length=") + NGX_INT_T_LEN;
+
+  ngx_buf_t *buf = ngx_create_temp_buf(r->pool, len);
   if (buf == NULL) {
     close(sockfd);
     return INFLUXDB_METRIC_ERR;

@@ -1,9 +1,18 @@
-## Config Example (right now)
+# NGINX InfluxDB Module
 
-Right now the configuration needs to stay in `location{}s`using
+A module to monitor request passing trough an NGINX server by sending
+every request to an InfluxDB backend exposing UDP.
+
+**Please note that** this is a work in progress, things are broken and you
+only clone it to contribute and help for now until the first release.
+
+## Config Example
+
+Right now the configuration needs to stay in `location{}s`using, other places
+will be surely supported in the near future.
 
 ```
-influxdb host=127.0.0.1 port=8089 measurement=shiz;
+influxdb host=127.0.0.1 port=8089 measurement=mymeasures;
 ```
 
 A full example config looks like this
@@ -41,8 +50,8 @@ http {
         listen       8080;
         server_name  localhost;
         location / {
-            root   /home/fntlnz/Projects/fntlnz/static;
-            influxdb host=127.0.0.1 port=8089 measurement=shiz;
+            root   /usr/share/nginx/html;
+            influxdb host=127.0.0.1 port=8089 measurement=mymeasures;
             index  index.html index.htm;
         }
 
