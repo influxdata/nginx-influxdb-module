@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <netinet/in.h>
+#include <ngx_alloc.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
@@ -49,6 +50,27 @@ static char *method_to_name(ngx_uint_t method) {
   }
 }
 
+static ngx_buf_t *create_temp_char_buf(ngx_pool_t *pool, size_t size) {
+  ngx_buf_t *b;
+
+  b = ngx_calloc_buf(pool);
+  if (b == NULL) {
+    return NULL;
+  }
+
+  b->start = (u_char *)ngx_pcalloc(pool, size);
+  if (b->start == NULL) {
+    return NULL;
+  }
+
+  b->pos = b->start;
+  b->last = b->start;
+  b->end = b->last + size;
+  b->temporary = 1;
+
+  return b;
+}
+
 void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
                                    ngx_http_request_t *req) {
   metric->method = method_to_name(req->method);
@@ -60,45 +82,42 @@ void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
   metric->request_length = req->request_length;
 }
 
-ngx_int_t ngx_http_influxdb_metric_push(ngx_http_request_t *r,
+ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
                                         ngx_http_influxdb_metric_t *m,
-                                        ngx_str_t host, uint16_t port,
+                                        ngx_str_t host, ngx_uint_t port,
                                         ngx_str_t measurement) {
-  int sockfd;
+  size_t len = sizeof(measurement) - 1 + sizeof("server_name=") - 1 +
+               sizeof(m->server_name) - 1 + sizeof(",method=") - 1 +
+               sizeof(m->method) - 1 + sizeof(" status=") - 1 + NGX_INT_T_LEN +
+               sizeof(",total_bytes_sent=") - 1 + NGX_INT_T_LEN +
+               sizeof(",header_bytes_sent=") - 1 + NGX_INT_T_LEN +
+               sizeof(",request_length=") - 1 + NGX_INT_T_LEN;
+
+  ngx_buf_t *buf = create_temp_char_buf(pool, len);
+
+  (void)ngx_sprintf(buf->pos,
+                    "%s,server_name=%s,method=%s "
+                    "status=%i,total_bytes_sent=%O,header_"
+                    "bytes_sent=%z,request_length=%O",
+                    measurement.data, m->server_name, m->method, m->status,
+                    m->total_bytes_sent, m->header_bytes_sent,
+                    m->request_length);
+
   struct sockaddr_in servaddr;
-
-  sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-
+  int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   bzero(&servaddr, sizeof(servaddr));
 
   servaddr.sin_family = AF_INET;
   servaddr.sin_addr.s_addr = inet_addr(host.data);
-  servaddr.sin_port = htons((uint16_t)port);
-
-  size_t len = sizeof(measurement) + sizeof("server_name=") +
-               sizeof(m->server_name) + sizeof(",method=") + sizeof(m->method) +
-               sizeof(" status=") + NGX_INT_T_LEN +
-               sizeof(",total_bytes_sent=") + NGX_INT_T_LEN +
-               sizeof(",header_bytes_sent=") + NGX_INT_T_LEN +
-               sizeof(",request_length=") + NGX_INT_T_LEN;
-
-  ngx_buf_t *buf = ngx_create_temp_buf(r->pool, len);
-  if (buf == NULL) {
-    close(sockfd);
-    return INFLUXDB_METRIC_ERR;
-  }
-
-  (void)ngx_sprintf(buf->pos,
-                    "%s,server_name=%s,method=%s "
-                    "status=%l,total_bytes_sent=%l,header_"
-                    "bytes_sent=%l,request_length=%l",
-                    measurement.data, m->server_name, m->method, m->status,
-                    (intmax_t)m->total_bytes_sent, m->header_bytes_sent,
-                    m->request_length);
+  servaddr.sin_port = htons(port);
 
   ssize_t sentlen =
       sendto(sockfd, buf->pos, strlen(buf->pos), 0,
              (const struct sockaddr *)&servaddr, sizeof(servaddr));
+
+  // if (buf != NULL) {
+  //   ngx_free(buf);
+  // }
 
   close(sockfd);
 

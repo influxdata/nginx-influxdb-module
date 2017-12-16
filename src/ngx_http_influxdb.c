@@ -60,11 +60,12 @@ static ngx_int_t ngx_http_influxdb_handler(ngx_http_request_t *req) {
                   "Failed to allocate influxdb metric handler");
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
   }
+
   ngx_http_influxdb_metric_init(m, req);
   ngx_http_influxdb_loc_conf_t *conf;
   conf = ngx_http_get_module_loc_conf(req, ngx_http_influxdb_module);
   ngx_int_t pushret = ngx_http_influxdb_metric_push(
-      req, m, conf->host, (uint16_t)conf->port, conf->measurement);
+      req->pool, m, conf->host, conf->port, conf->measurement);
 
   if (pushret == INFLUXDB_METRIC_ERR) {
     ngx_log_error(
@@ -107,7 +108,7 @@ static ngx_int_t ngx_http_influxdb_init(ngx_conf_t *conf) {
 
   cmcf = ngx_http_conf_get_module_main_conf(conf, ngx_http_core_module);
 
-  h = ngx_array_push(&cmcf->phases[NGX_HTTP_LOG_PHASE].handlers);
+  h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
   if (h == NULL) {
     return NGX_ERROR;
   }
