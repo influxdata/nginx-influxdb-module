@@ -3,29 +3,38 @@
 A module to monitor request passing trough an NGINX server by sending
 every request to an InfluxDB backend exposing UDP.
 
-**Please note that** this is a work in progress, things are broken and you
-only clone it to contribute and help for now until the first release.
 
-## Config Example
+## Installation
 
-Right now the configuration needs to stay in `location{}s`using, other places
-will be surely supported in the near future.
+## Build the module statically with NGINX
+
+Writing this in a snap!
+
+## Build the module dinamically to be loaded within NGINX
+
+Writing this in a snap!
+
+## Configuration
+
+To configure it you just need this one line configuration.
 
 ```
 influxdb host=127.0.0.1 port=8089 measurement=mymeasures;
 ```
 
+
+### Full Example
+
 A full example config looks like this
 
-```
-# user  nginx;
-worker_processes  1;
+```nginx
+user  nginx;
+worker_processes  auto;
 daemon off;
 
-
-#load_module modules/ngx_http_influxdb_module.so; needed if dynamic
-error_log  /tmp/error.log debug;
-pid        /tmp/nginx/nginx.pid;
+#load_module path/to/the/module/ngx_http_influxdb_module.so; needed if a dynamic module
+error_log  /var/log/nginx/error.log debug;
+pid        /var/run/nginx/nginx.pid;
 
 
 events {
@@ -64,3 +73,10 @@ http {
 }
 
 ```
+
+
+## The module needs your help!!
+
+Any help is *always* appreciated, if you're reading this you're already
+qualified to help! If you can't find anything just send me an email or
+DM me on twitter ([@fntlnz](https://twitter.com/fntlnz)) :angel:

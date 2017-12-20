@@ -8,12 +8,13 @@
 #define INFLUXDB_METRIC_ERR -1
 
 typedef struct {
-  u_char *method;
-  u_char *server_name;
+  ngx_str_t method;
+  ngx_str_t server_name;
   ngx_uint_t status;
-  off_t total_bytes_sent;
+  off_t content_length_n;
   size_t header_bytes_sent;
   off_t request_length;
+  ngx_str_t uri;
 } ngx_http_influxdb_metric_t;
 
 void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
