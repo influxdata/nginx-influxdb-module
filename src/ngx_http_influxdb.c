@@ -54,31 +54,46 @@ ngx_module_t ngx_http_influxdb_header_filter_module = {
     NULL,                                        /* exit master */
     NGX_MODULE_V1_PADDING};
 
-static ngx_int_t ngx_http_influxdb_metrics_body_filter(ngx_http_request_t *r,
-                                                       ngx_chain_t *chain) {
+static unsigned has_last_buffer(ngx_chain_t *chain) {
   if (chain->buf->last_buf) {
-    ngx_http_influxdb_metric_t *m =
-        ngx_palloc(r->pool, sizeof(ngx_http_influxdb_metric_t));
-    if (m == NULL) {
-      ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                    "Failed to allocate influxdb metric handler");
-      return NGX_HTTP_INTERNAL_SERVER_ERROR;
-    }
-
-    ngx_http_influxdb_metric_init(m, r);
-    ngx_http_influxdb_loc_conf_t *conf;
-    conf =
-        ngx_http_get_module_loc_conf(r, ngx_http_influxdb_header_filter_module);
-    ngx_int_t pushret = ngx_http_influxdb_metric_push(
-        r->pool, m, conf->host, conf->port, conf->measurement);
-
-    if (pushret == INFLUXDB_METRIC_ERR) {
-      ngx_log_error(
-          NGX_LOG_WARN, r->connection->log, 0,
-          "An error occurred sending metrics to the influxdb backend: %s",
-          strerror(errno));
+    return 1;
+  }
+  ngx_chain_t *cl;
+  for (cl = chain; cl; cl = cl->next) {
+    if (cl->buf->last_buf) {
+      return 1;
     }
   }
+  return 0;
+}
+static ngx_int_t ngx_http_influxdb_metrics_body_filter(ngx_http_request_t *r,
+                                                       ngx_chain_t *chain) {
+  if (has_last_buffer(chain) == 0) {
+    return ngx_http_next_body_filter(r, chain);
+  }
+
+  ngx_http_influxdb_metric_t *m =
+      ngx_palloc(r->pool, sizeof(ngx_http_influxdb_metric_t));
+  if (m == NULL) {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                  "Failed to allocate influxdb metric handler");
+    return NGX_HTTP_INTERNAL_SERVER_ERROR;
+  }
+
+  ngx_http_influxdb_metric_init(m, r);
+  ngx_http_influxdb_loc_conf_t *conf;
+  conf =
+      ngx_http_get_module_loc_conf(r, ngx_http_influxdb_header_filter_module);
+  ngx_int_t pushret = ngx_http_influxdb_metric_push(
+      r->pool, m, conf->host, conf->port, conf->measurement);
+
+  if (pushret == INFLUXDB_METRIC_ERR) {
+    ngx_log_error(
+        NGX_LOG_WARN, r->connection->log, 0,
+        "An error occurred sending metrics to the influxdb backend: %s",
+        strerror(errno));
+  }
+
   return ngx_http_next_body_filter(r, chain);
 }
 
