@@ -11,10 +11,13 @@ typedef struct {
   ngx_str_t method;
   ngx_str_t server_name;
   ngx_uint_t status;
-  off_t content_length_n;
+  off_t connection_bytes_sent;
+  off_t body_bytes_sent;
   size_t header_bytes_sent;
   off_t request_length;
   ngx_str_t uri;
+  ngx_str_t extension;
+  ngx_str_t content_type;
 } ngx_http_influxdb_metric_t;
 
 void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
