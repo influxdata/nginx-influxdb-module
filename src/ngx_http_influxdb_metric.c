@@ -81,12 +81,13 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
   bzero(&servaddr, sizeof(servaddr));
 
   servaddr.sin_family = AF_INET;
-  servaddr.sin_addr.s_addr = inet_addr(host.data);
+  servaddr.sin_addr.s_addr = ngx_inet_addr(host.data, host.len);
   servaddr.sin_port = htons(port);
 
+  size_t sendsize = ngx_strlen(buf->last);
   ssize_t sentlen =
-      sendto(sockfd, buf->last, strlen(buf->pos), 0,
-             (const struct sockaddr *)&servaddr, sizeof(servaddr));
+      sendto(sockfd, buf->last, sendsize, 0, (const struct sockaddr *)&servaddr,
+             sizeof(servaddr));
 
   close(sockfd);
 
