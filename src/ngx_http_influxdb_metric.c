@@ -37,7 +37,6 @@ void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
                                    ngx_str_t server_name) {
   metric->method = req->method_name;
   metric->status = req->headers_out.status;
-  // TODO(fntlnz): Find a proper server name to be used here (configuration?)
   metric->server_name = server_name;
   metric->body_bytes_sent = req->headers_out.content_length_n;
   metric->connection_bytes_sent = req->connection->sent;

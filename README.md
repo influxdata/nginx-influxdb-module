@@ -3,8 +3,26 @@
 A module to monitor request passing trough an NGINX server by sending
 every request to an InfluxDB backend exposing UDP.
 
+## Exported Fields (per request)
+
+| Metric                | Type    | Description                                                                                                                               |   |
+|-----------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------|---|
+| method                | string  | The HTTP request method that has been given as a reply to the caller                                                                      |   |
+| status                | integer | The HTTP status code of the reply from the server (refer to [RFC 7231](https://tools.ietf.org/html/rfc7231#section-6.1) for more details) |   |
+| connection_bytes_sent | integer | Bytes sent by the current connection considering all the buffers                                                                          |   |
+| body_bytes_sent       | integer | Bytes sent for the body only                                                                                                              |   |
+| header_bytes_sent     | integer | Bytes sent for the header only                                                                                                            |   |
+| request_length        | integer | The length of the headers sent by the client                                                                                              |   |
+| uri                   | string  | The called uri (e.g: /index.html)                                                                                                         |   |
+| extension             | string  | The extension of the served file (e.g: js, html, php, png)                                                                                |   |
+| content_type          | string  | The content type of the response (e.g: text/html)                                                                                         |   |
+
 
 ## Installation
+
+## From pre-built dynamic modules
+
+Pre-built dynamic modules are not available (yet)
 
 ## Build the module statically with NGINX
 
