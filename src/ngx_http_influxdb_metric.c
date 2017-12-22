@@ -33,11 +33,11 @@ static ngx_buf_t *create_temp_char_buf(ngx_pool_t *pool, size_t size) {
 }
 
 void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
-                                   ngx_http_request_t *req) {
+                                   ngx_http_request_t *req,
+                                   ngx_str_t server_name) {
   metric->method = req->method_name;
   metric->status = req->headers_out.status;
   // TODO(fntlnz): Find a proper server name to be used here (configuration?)
-  ngx_str_t server_name = ngx_string("default");
   metric->server_name = server_name;
   metric->body_bytes_sent = req->headers_out.content_length_n;
   metric->connection_bytes_sent = req->connection->sent;

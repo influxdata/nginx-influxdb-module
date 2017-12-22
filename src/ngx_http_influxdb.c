@@ -10,6 +10,7 @@
 typedef struct {
   ngx_str_t host;
   ngx_uint_t port;
+  ngx_str_t server_name;
   ngx_str_t measurement;
 } ngx_http_influxdb_loc_conf_t;
 
@@ -80,10 +81,10 @@ static ngx_int_t ngx_http_influxdb_metrics_body_filter(ngx_http_request_t *r,
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
   }
 
-  ngx_http_influxdb_metric_init(m, r);
   ngx_http_influxdb_loc_conf_t *conf;
   conf =
       ngx_http_get_module_loc_conf(r, ngx_http_influxdb_header_filter_module);
+  ngx_http_influxdb_metric_init(m, r, conf->server_name);
   ngx_int_t pushret = ngx_http_influxdb_metric_push(
       r->pool, m, conf->host, conf->port, conf->measurement);
 
@@ -152,6 +153,14 @@ static char *ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
       ulcf->port =
           (ngx_uint_t)ngx_atoi(&value[i].data[ngx_strlen("port=")],
                                ngx_strlen(&value[i].data[ngx_strlen("port=")]));
+      continue;
+    }
+
+    if (ngx_strncmp(value[i].data,
+                    "server_name=", ngx_strlen("server_name=")) == 0) {
+      ulcf->server_name.data = &value[i].data[ngx_strlen("server_name=")];
+      ulcf->server_name.len =
+          ngx_strlen(&value[i].data[ngx_strlen("server_name=")]);
       continue;
     }
   }

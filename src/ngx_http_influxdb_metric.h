@@ -21,7 +21,8 @@ typedef struct {
 } ngx_http_influxdb_metric_t;
 
 void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
-                                   ngx_http_request_t *req);
+                                   ngx_http_request_t *req,
+                                   ngx_str_t server_name);
 
 ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
                                         ngx_http_influxdb_metric_t *m,
