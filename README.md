@@ -48,7 +48,7 @@ Writing this in a snap!
 To configure it you just need this one line configuration.
 
 ```
-influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures;
+influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures enabled=true;
 ```
 
 

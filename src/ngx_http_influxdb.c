@@ -27,7 +27,7 @@ static ngx_http_output_body_filter_pt ngx_http_next_body_filter;
 static ngx_command_t ngx_http_influxdb_commands[] = {
     {ngx_string("influxdb"),
      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
-         NGX_CONF_1MORE,
+         NGX_CONF_TAKE5,
      ngx_http_influxdb, NGX_HTTP_LOC_CONF_OFFSET, 0, NULL},
 };
 
