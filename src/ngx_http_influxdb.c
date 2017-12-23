@@ -11,6 +11,7 @@ typedef struct {
   ngx_str_t host;
   ngx_uint_t port;
   ngx_str_t server_name;
+  ngx_str_t enabled;
   ngx_str_t measurement;
 } ngx_http_influxdb_loc_conf_t;
 
@@ -84,6 +85,11 @@ static ngx_int_t ngx_http_influxdb_metrics_body_filter(ngx_http_request_t *r,
   ngx_http_influxdb_loc_conf_t *conf;
   conf =
       ngx_http_get_module_loc_conf(r, ngx_http_influxdb_header_filter_module);
+
+  if (ngx_strcmp(conf->enabled.data, "false") == 0) {
+    return ngx_http_next_body_filter(r, chain);
+  }
+
   ngx_http_influxdb_metric_init(m, r, conf->server_name);
   ngx_int_t pushret = ngx_http_influxdb_metric_push(
       r->pool, m, conf->host, conf->port, conf->measurement);
@@ -116,6 +122,8 @@ static char *ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent,
 
   ngx_conf_merge_str_value(cf->host, prev->host, "influxdb");
   ngx_conf_merge_uint_value(cf->port, prev->port, 8089);
+  ngx_conf_merge_str_value(cf->enabled, prev->enabled, "false");
+  ngx_conf_merge_str_value(cf->server_name, prev->server_name, "default");
   ngx_conf_merge_str_value(cf->measurement, prev->measurement, "nginx");
 
   return NGX_CONF_OK;
@@ -161,6 +169,12 @@ static char *ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
       ulcf->server_name.data = &value[i].data[ngx_strlen("server_name=")];
       ulcf->server_name.len =
           ngx_strlen(&value[i].data[ngx_strlen("server_name=")]);
+      continue;
+    }
+
+    if (ngx_strncmp(value[i].data, "enabled=", ngx_strlen("enabled=")) == 0) {
+      ulcf->enabled.data = &value[i].data[ngx_strlen("enabled=")];
+      ulcf->enabled.len = ngx_strlen(&value[i].data[ngx_strlen("enabled=")]);
       continue;
     }
   }
