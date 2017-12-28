@@ -103,3 +103,32 @@ http {
 
 ```
 
+
+## Contributing
+
+### Run Unit the tests
+
+If you are willing to contribute to a patch, you're required to test what you did
+whenever possible.
+
+This project uses the [Google Test](https://github.com/google/googletest) testing framework.
+
+The build of the module itself is done trough NGINX and its build model. However, for testing we use
+`CMake` - so if you want to test this module you need the following dependencies:
+
+- CMake >= 3.3
+- Google Test
+- Google Mock
+- gcc
+- gcc-c++
+
+
+Now that you have the dependencies you can test your changes with:
+
+```bash
+cd test
+cmake .
+make
+make test
+```
+

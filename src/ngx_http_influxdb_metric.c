@@ -48,10 +48,8 @@ void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
   metric->content_type = req->headers_out.content_type;
 }
 
-ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
-                                        ngx_http_influxdb_metric_t *m,
-                                        ngx_str_t host, ngx_uint_t port,
-                                        ngx_str_t measurement) {
+ngx_buf_t *metric_serialize(ngx_pool_t *pool, ngx_str_t measurement,
+                            ngx_http_influxdb_metric_t *m) {
   size_t len = sizeof(measurement) - 1 + sizeof(",server_name=") - 1 +
                sizeof(m->server_name) - 1 + sizeof(" method=") - 1 +
                sizeof(m->method) - 1 + sizeof(",status=") - 1 + NGX_INT_T_LEN +
@@ -76,6 +74,13 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
                     m->header_bytes_sent, m->request_length, &m->uri,
                     &m->extension, &m->content_type);
 
+  return buf;
+}
+
+ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
+                                        ngx_http_influxdb_metric_t *m,
+                                        ngx_str_t host, ngx_uint_t port,
+                                        ngx_str_t measurement) {
   struct sockaddr_in servaddr;
   int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   bzero(&servaddr, sizeof(servaddr));
@@ -84,6 +89,7 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
   servaddr.sin_addr.s_addr = ngx_inet_addr(host.data, host.len);
   servaddr.sin_port = htons(port);
 
+  ngx_buf_t *buf = metric_serialize(pool, measurement, m);
   size_t sendsize = ngx_strlen(buf->last);
   ssize_t sentlen =
       sendto(sockfd, buf->last, sendsize, 0, (const struct sockaddr *)&servaddr,
