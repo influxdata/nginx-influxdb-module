@@ -112,6 +112,15 @@ static void *ngx_http_influxdb_create_loc_conf(ngx_conf_t *conf) {
   }
 
   cf->port = NGX_CONF_UNSET_UINT;
+  cf->host.data = NULL;
+  cf->host.len = 0;
+  cf->enabled.data = NULL;
+  cf->enabled.len = 0;
+  cf->server_name.data = NULL;
+  cf->server_name.len = 0;
+  cf->measurement.data = NULL;
+  cf->measurement.len = 0;
+
   return cf;
 }
 
