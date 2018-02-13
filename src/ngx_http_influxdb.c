@@ -31,7 +31,7 @@ static ngx_command_t ngx_http_influxdb_commands[] = {
      ngx_http_influxdb, NGX_HTTP_LOC_CONF_OFFSET, 0, NULL},
 };
 
-static ngx_http_module_t ngx_http_influxdb_header_filter_module_ctx = {
+static ngx_http_module_t ngx_http_influxdb_body_filter_module_ctx = {
     NULL,                              /* preconfiguration */
     nginx_http_influxdb_filter_init,   /* postconfiguration */
     NULL,                              /* create main configuration */
@@ -42,52 +42,59 @@ static ngx_http_module_t ngx_http_influxdb_header_filter_module_ctx = {
     ngx_http_influxdb_merge_loc_conf   /* merge location configuration */
 };
 
-ngx_module_t ngx_http_influxdb_header_filter_module = {
+ngx_module_t ngx_http_influxdb_body_filter_module = {
     NGX_MODULE_V1,
-    &ngx_http_influxdb_header_filter_module_ctx, /* module context */
-    ngx_http_influxdb_commands,                  /* module directives */
-    NGX_HTTP_MODULE,                             /* module type */
-    NULL,                                        /* init master */
-    NULL,                                        /* init module */
-    NULL,                                        /* init process */
-    NULL,                                        /* init thread */
-    NULL,                                        /* exit thread */
-    NULL,                                        /* exit process */
-    NULL,                                        /* exit master */
+    &ngx_http_influxdb_body_filter_module_ctx, /* module context */
+    ngx_http_influxdb_commands,                /* module directives */
+    NGX_HTTP_MODULE,                           /* module type */
+    NULL,                                      /* init master */
+    NULL,                                      /* init module */
+    NULL,                                      /* init process */
+    NULL,                                      /* init thread */
+    NULL,                                      /* exit thread */
+    NULL,                                      /* exit process */
+    NULL,                                      /* exit master */
     NGX_MODULE_V1_PADDING};
 
-static unsigned has_last_buffer(ngx_chain_t *chain) {
-  if (chain->buf->last_buf) {
-    return 1;
-  }
-  ngx_chain_t *cl;
-  for (cl = chain; cl; cl = cl->next) {
-    if (cl->buf->last_buf) {
-      return 1;
-    }
-  }
-  return 0;
-}
 static ngx_int_t ngx_http_influxdb_metrics_body_filter(ngx_http_request_t *r,
-                                                       ngx_chain_t *chain) {
-  if (has_last_buffer(chain) == 0) {
-    return ngx_http_next_body_filter(r, chain);
+                                                       ngx_chain_t *in) {
+  ngx_connection_t *c;
+  ngx_http_influxdb_loc_conf_t *conf;
+  ngx_uint_t last, flush;
+
+  ngx_chain_t *cl;
+
+  c = r->connection;
+
+  if (c->error) {
+    return NGX_ERROR;
   }
 
+  for (cl = r->out; cl; cl = cl->next) {
+    if (cl->buf->flush || cl->buf->recycled) {
+      flush = 1;
+    }
+
+    if (cl->buf->last_buf) {
+      last = 1;
+    }
+  }
+
+  if (!last && !flush && in) {
+    return ngx_http_next_body_filter(r, in);
+  }
+
+  conf = ngx_http_get_module_loc_conf(r, ngx_http_influxdb_body_filter_module);
+
+  if (ngx_strcmp(conf->enabled.data, "false") == 0) {
+    return ngx_http_next_body_filter(r, in);
+  }
   ngx_http_influxdb_metric_t *m =
       ngx_palloc(r->pool, sizeof(ngx_http_influxdb_metric_t));
   if (m == NULL) {
     ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
                   "Failed to allocate influxdb metric handler");
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
-  }
-
-  ngx_http_influxdb_loc_conf_t *conf;
-  conf =
-      ngx_http_get_module_loc_conf(r, ngx_http_influxdb_header_filter_module);
-
-  if (ngx_strcmp(conf->enabled.data, "false") == 0) {
-    return ngx_http_next_body_filter(r, chain);
   }
 
   ngx_http_influxdb_metric_init(m, r, conf->server_name);
@@ -101,7 +108,7 @@ static ngx_int_t ngx_http_influxdb_metrics_body_filter(ngx_http_request_t *r,
         strerror(errno));
   }
 
-  return ngx_http_next_body_filter(r, chain);
+  return ngx_http_next_body_filter(r, in);
 }
 
 static void *ngx_http_influxdb_create_loc_conf(ngx_conf_t *conf) {
