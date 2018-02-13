@@ -10,3 +10,6 @@ before_install:
 
 script:
   - ./integration/nginx-tests.sh $PWD
+
+after_script:
+  - docker run -it -d influxdb --entrypoint=sh --net=host influx -execute 'select * from mymeasures' -database=testmod

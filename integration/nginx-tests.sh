@@ -21,4 +21,3 @@ popd
 
 popd
 
-influx -execute 'select * from mymeasures' -database=testmod
