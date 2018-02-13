@@ -12,4 +12,4 @@ script:
   - ./integration/nginx-tests.sh $PWD
 
 after_script:
-  - docker run -it -d influxdb --entrypoint=sh --net=host influx -execute 'select * from mymeasures' -database=testmod
+  - docker run -it --net=host docker.io/influxdb influx -execute 'select * from mymeasures' -database=testmod
