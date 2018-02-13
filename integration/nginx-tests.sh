@@ -20,3 +20,5 @@ TEST_NGINX_USE_VALGRIND=1 prove .
 popd
 
 popd
+
+influx -execute 'select * from mymeasures' -database=testmod
