@@ -6,7 +6,7 @@ services:
   - docker
 
 before_install:
-  - docker run -d --name influxdb -p 8086:8086 -p 8089:8089/udp -v integration/influxdb.conf:/etc/influxdb/influxdb.conf:ro influxdb
+  - docker run -d --name influxdb -p 8086:8086 -p 8089:8089/udp -v $PWD/integration/influxdb.conf:/etc/influxdb/influxdb.conf:ro influxdb
 
 script:
   - ./integration/nginx-tests.sh $PWD
