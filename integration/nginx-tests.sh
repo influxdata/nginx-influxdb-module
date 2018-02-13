@@ -16,7 +16,7 @@ popd
 
 pushd nginx-tests
 find . -type f -exec sed -i "/localhost;/a influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures enabled=true;" {} \;
-TEST_NGINX_USE_VALGRIND=1 prove .
+prove .
 popd
 
 popd
