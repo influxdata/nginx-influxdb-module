@@ -132,3 +132,22 @@ make
 make test
 ```
 
+
+### Run the NGINX Integration tests
+
+The integration tests are actually using the official nginx tests patched
+on the fly to use the module and write metrics to Influx.
+
+To run the tests you actually need an influxdb instance to accept data:
+
+```
+docker run -d --name influxdb -p 8086:8086 -p 8089:8089/udp -v $PWD/integration/influxdb.conf:/etc/influxdb/influxdb.conf:ro influxdb
+```
+
+Then you can run the test script
+
+```bash
+./integration/nginx-tests.sh
+```
+
+After all this you will se all the points written to the influx instance
