@@ -103,9 +103,3 @@ http {
 
 ```
 
-
-## The module needs your help!!
-
-Any help is *always* appreciated, if you're reading this you're already
-qualified to help! If you can't find anything just send me an email or
-DM me on twitter ([@fntlnz](https://twitter.com/fntlnz)) :angel:
