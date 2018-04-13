@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -xeuo pipefail
 module_path=${1:-../../../nginx-influxdb-module}
 rm -Rf test-build
 mkdir test-build

@@ -32,20 +32,40 @@ static ngx_buf_t *create_temp_char_buf(ngx_pool_t *pool, size_t size) {
   return b;
 }
 
-void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
+void ngx_http_influxdb_metric_init(ngx_pool_t *pool,
+                                   ngx_http_influxdb_metric_t *metric,
                                    ngx_http_request_t *req,
                                    ngx_str_t server_name) {
+  // request data
   metric->method = req->method_name;
-  metric->status = req->headers_out.status;
   metric->server_name = server_name;
-  metric->body_bytes_sent = req->headers_out.content_length_n;
   metric->connection_bytes_sent = req->connection->sent;
   metric->header_bytes_sent = req->header_size;
   metric->request_length = req->request_length;
   metric->extension = req->exten;
   metric->uri = req->uri;
 
+  // response data
+  metric->status = req->headers_out.status;
+  metric->body_bytes_sent = req->headers_out.content_length_n;
   metric->content_type = req->headers_out.content_type;
+
+  // request time (how long we are dealing with the request)
+  ngx_time_t *tp;
+  ngx_msec_int_t ms;
+
+  tp = ngx_timeofday();
+
+  ms = (ngx_msec_int_t)((tp->sec - req->start_sec) * 1000 +
+                        (tp->msec - req->start_msec));
+  ms = ngx_max(ms, 0);
+
+  size_t len = sizeof(time_t);
+  ngx_buf_t *buf = create_temp_char_buf(pool, len);
+  (void)ngx_sprintf(buf->last, "%T.%03M", (time_t)ms / 1000, ms % 1000);
+
+  metric->request_time.data = buf->last;
+  metric->request_time.len = len;
 }
 
 ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
@@ -61,7 +81,8 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
                sizeof(",request_length=") - 1 + NGX_INT_T_LEN +
                sizeof(",uri=") - 1 + sizeof(m->uri) + sizeof(",extension=") -
                1 + sizeof(m->extension) + sizeof(",content_type=") - 1 +
-               sizeof(m->content_type);
+               sizeof(m->content_type) + sizeof(time_t) - 1 +
+               sizeof(",request_time=");
 
   ngx_buf_t *buf = create_temp_char_buf(pool, len);
 
@@ -70,11 +91,11 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
                     "method=\"%V\",status=%i,connection_bytes_sent=%O,body_"
                     "bytes_sent=%O,header_"
                     "bytes_sent=%z,request_length=%O,uri=\"%V\",extension=\"%"
-                    "V\",content_type=\"%V\"",
+                    "V\",content_type=\"%V\",request_time=\"%V\"",
                     &measurement, &m->server_name, &m->method, m->status,
                     m->connection_bytes_sent, m->body_bytes_sent,
                     m->header_bytes_sent, m->request_length, &m->uri,
-                    &m->extension, &m->content_type);
+                    &m->extension, &m->content_type, &m->request_time);
 
   struct sockaddr_in servaddr;
   int sockfd = socket(AF_INET, SOCK_DGRAM, 0);

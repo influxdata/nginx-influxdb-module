@@ -97,7 +97,7 @@ static ngx_int_t ngx_http_influxdb_metrics_body_filter(ngx_http_request_t *r,
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
   }
 
-  ngx_http_influxdb_metric_init(m, r, conf->server_name);
+  ngx_http_influxdb_metric_init(r->pool, m, r, conf->server_name);
   ngx_int_t pushret = ngx_http_influxdb_metric_push(
       r->pool, m, conf->host, conf->port, conf->measurement);
 
