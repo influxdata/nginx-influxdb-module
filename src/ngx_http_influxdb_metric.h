@@ -18,9 +18,11 @@ typedef struct {
   ngx_str_t uri;
   ngx_str_t extension;
   ngx_str_t content_type;
+  ngx_str_t request_time;
 } ngx_http_influxdb_metric_t;
 
-void ngx_http_influxdb_metric_init(ngx_http_influxdb_metric_t *metric,
+void ngx_http_influxdb_metric_init(ngx_pool_t *pool,
+                                   ngx_http_influxdb_metric_t *metric,
                                    ngx_http_request_t *req,
                                    ngx_str_t server_name);
 
