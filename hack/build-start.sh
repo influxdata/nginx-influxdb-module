@@ -23,13 +23,13 @@ cp -r conf /tmp/nginx-test-current/conf
 cp -r $module_path/hack/html /tmp/nginx-test-current/html
 cp $module_path/hack/nginx.conf /tmp/nginx-test-current/conf/nginx.conf
 
-trap "docker rm -f test-nginx-influxdb test-nginx-cats" SIGINT SIGTERM SIGKILL
+trap "docker rm -f test-nginx-influxdb test-nginx-chronograf" SIGINT SIGTERM SIGKILL
 
 # Start influxdb
-docker run -d --name test-nginx-influxdb -p 8086:8086 -p 8089:8089/udp -v $DIR/influxdb.conf:/etc/influxdb/influxdb.conf:ro influxdb
+docker run -d --name test-nginx-influxdb -p 8888:8888 -p 8086:8086 -p 8089:8089/udp -v $DIR/influxdb.conf:/etc/influxdb/influxdb.conf:ro influxdb
 
-# Start an application to test the proxy pass
-docker run -d --name test-nginx-cats -p 8081:8080 docker.io/fntlnz/caturday
+# Start chronograf
+docker run --network container:test-nginx-influxdb --name test-nginx-chronograf -d chronograf
 
 # Start nginx
 ./objs/nginx -p /tmp/nginx-test-current -c conf/nginx.conf

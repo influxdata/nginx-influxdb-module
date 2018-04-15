@@ -103,3 +103,27 @@ http {
 
 ```
 
+
+### Local Testing
+
+To test changes locally, there's a script in `hack/` called `build-start.sh` that can
+build the local changes against the current nginx source code taken from github.
+
+To run, the script also requires docker in order to start influxdb, chronograf and other testing proxy backends
+
+```bash
+./hack/build-start.sh
+```
+
+- You can reach chronograf (through nginx) at `http://127.0.0.1:8082/`
+- You can reach chronograf (directly) at `http://127.0.0.1:8888/`
+- A static hello world page can be reached at `http://127.0.0.1:8080`
+
+
+You can access the influxdb instance CLI via:
+
+```bash
+ docker exec -it test-nginx-influxdb influx
+```
+
+
