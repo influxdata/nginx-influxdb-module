@@ -91,7 +91,7 @@ ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
                     "method=\"%V\",status=%i,connection_bytes_sent=%O,body_"
                     "bytes_sent=%O,header_"
                     "bytes_sent=%z,request_length=%O,uri=\"%V\",extension=\"%"
-                    "V\",content_type=\"%V\",request_time=\"%V\"",
+                    "V\",content_type=\"%V\",request_time=%V",
                     &measurement, &m->server_name, &m->method, m->status,
                     m->connection_bytes_sent, m->body_bytes_sent,
                     m->header_bytes_sent, m->request_length, &m->uri,
