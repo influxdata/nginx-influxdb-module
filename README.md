@@ -9,10 +9,10 @@ every request to an InfluxDB backend exposing UDP.
 |-----------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | method                | string  | The HTTP request method that has been given as a reply to the caller                                                                      |
 | status                | integer | The HTTP status code of the reply from the server (refer to [RFC 7231](https://tools.ietf.org/html/rfc7231#section-6.1) for more details) |
-| connection_bytes_sent | integer | Bytes sent by the current connection considering all the buffers                                                                          |
-| body_bytes_sent       | integer | Bytes sent for the body only                                                                                                              |
-| header_bytes_sent     | integer | Bytes sent for the header only                                                                                                            |
-| request_length        | integer | The length of the headers sent by the client                                                                                              |
+| bytes_sent            | integer | The number of bytes sent to a client body + header                                                                                        |
+| body_bytes_sent       | integer | The number of bytes sent to a client only for body                                                                                        |
+| header_bytes_sent     | integer | The number of bytes sent to a client for header and body                                                                                  |
+| request_length        | integer | Request length (including request line, header, and request body)                                                                         |
 | uri                   | string  | The called uri (e.g: /index.html)                                                                                                         |
 | extension             | string  | The extension of the served file (e.g: js, html, php, png)                                                                                |
 | content_type          | string  | The content type of the response (e.g: text/html)                                                                                         |
@@ -62,7 +62,6 @@ worker_processes  auto;
 daemon off;
 
 #load_module path/to/the/module/ngx_http_influxdb_module.so; needed if a dynamic module
-error_log  /var/log/nginx/error.log debug;
 pid        /var/run/nginx/nginx.pid;
 
 
@@ -73,12 +72,6 @@ events {
 http {
     include       /etc/nginx/mime.types;
     default_type  application/octet-stream;
-
-    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
-                      '$status $body_bytes_sent "$http_referer" '
-                      '"$http_user_agent" "$http_x_forwarded_for"';
-
-    access_log  /tmp/access.log main;
 
     sendfile        on;
 

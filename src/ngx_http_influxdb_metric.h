@@ -11,7 +11,7 @@ typedef struct {
   ngx_str_t method;
   ngx_str_t server_name;
   ngx_uint_t status;
-  off_t connection_bytes_sent;
+  off_t bytes_sent;
   off_t body_bytes_sent;
   size_t header_bytes_sent;
   off_t request_length;
