@@ -5,18 +5,18 @@ every request to an InfluxDB backend exposing UDP.
 
 ## Exported Fields (per request)
 
-| Metric                | Type    | Description                                                                                                                                                                                           |
-|-----------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| method                | string  | The HTTP request method that has been given as a reply to the caller                                                                                                                                  |
-| status                | integer | The HTTP status code of the reply from the server (refer to [RFC 7231](https://tools.ietf.org/html/rfc7231#section-6.1) for more details)                                                             |
-| bytes_sent            | integer | The number of bytes sent to a client body + header                                                                                                                                                    |
-| body_bytes_sent       | integer | The number of bytes sent to a client only for body                                                                                                                                                    |
-| header_bytes_sent     | integer | The number of bytes sent to a client for header and body                                                                                                                                              |
-| request_length        | integer | Request length (including request line, header, and request body)                                                                                                                                     |
-| uri                   | string  | The called uri (e.g: /index.html)                                                                                                                                                                     |
-| extension             | string  | The extension of the served file (e.g: js, html, php, png)                                                                                                                                            |
-| content_type          | string  | The content type of the response (e.g: text/html)                                                                                                                                                     |
-| request_time          | string  | Request processing time in seconds with a milliseconds resolution                                                                                                                                     |
+| Metric                | Type    | Description                                                                                                                                |
+|-----------------------|---------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| method                | string  | The HTTP request method that has been given as a reply to the caller                                                                       |
+| status                | integer | The HTTP status code of the reply from the server (refer to [RFC 7231](https://tools.ietf.org/html/rfc7231#section-6.1) for more details)  |
+| bytes_sent            | integer | The number of bytes sent to a client body + header                                                                                         |
+| body_bytes_sent       | integer | The number of bytes sent to a client only for body                                                                                         |
+| header_bytes_sent     | integer | The number of bytes sent to a client for header and body                                                                                   |
+| request_length        | integer | Request length (including request line, header, and request body)                                                                          |
+| uri                   | string  | The called uri (e.g: /index.html)                                                                                                          |
+| extension             | string  | The extension of the served file (e.g: js, html, php, png)                                                                                 |
+| content_type          | string  | The content type of the response (e.g: text/html)                                                                                          |
+| request_time          | string  | Request processing time in seconds with a milliseconds resolution                                                                          |
 
 
 ## Installation

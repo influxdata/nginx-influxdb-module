@@ -55,6 +55,13 @@ ngx_module_t ngx_http_influxdb_module = {
     NGX_MODULE_V1_PADDING};
 
 static ngx_int_t ngx_http_influxdb_handler(ngx_http_request_t *req) {
+  ngx_http_influxdb_loc_conf_t *conf;
+  conf = ngx_http_get_module_loc_conf(req, ngx_http_influxdb_module);
+
+  if (!ngx_strcmp(conf->enabled.data, "true") == 0) {
+    return NGX_OK;
+  }
+
   ngx_http_influxdb_metric_t *m =
       ngx_palloc(req->pool, sizeof(ngx_http_influxdb_metric_t));
   if (m == NULL) {
@@ -62,8 +69,7 @@ static ngx_int_t ngx_http_influxdb_handler(ngx_http_request_t *req) {
                   "Failed to allocate influxdb metric handler");
     return NGX_HTTP_INTERNAL_SERVER_ERROR;
   }
-  ngx_http_influxdb_loc_conf_t *conf;
-  conf = ngx_http_get_module_loc_conf(req, ngx_http_influxdb_module);
+
   ngx_http_influxdb_metric_init(req->pool, m, req, conf->server_name);
   ngx_int_t pushret = ngx_http_influxdb_metric_push(
       req->pool, m, conf->host, (uint16_t)conf->port, conf->measurement);
@@ -121,7 +127,7 @@ static char *ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent,
   ngx_http_influxdb_loc_conf_t *prev = parent;
   ngx_http_influxdb_loc_conf_t *cf = child;
 
-  ngx_conf_merge_str_value(cf->host, prev->host, "influxdb");
+  ngx_conf_merge_str_value(cf->host, prev->host, "127.0.0.1");
   ngx_conf_merge_uint_value(cf->port, prev->port, 8089);
   ngx_conf_merge_str_value(cf->enabled, prev->enabled, "false");
   ngx_conf_merge_str_value(cf->server_name, prev->server_name, "default");
