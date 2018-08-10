@@ -83,7 +83,7 @@ http {
         server_name  localhost;
         location / {
             root   /usr/share/nginx/html;
-            influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures;
+            influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures enabled=true;
             index  index.html index.htm;
         }
 
