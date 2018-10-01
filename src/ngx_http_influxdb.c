@@ -1,3 +1,4 @@
+#include "ngx_http_influxdb_metric.h"
 #include <netinet/in.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
@@ -5,7 +6,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-#include "ngx_http_influxdb_metric.h"
 
 typedef struct {
   ngx_str_t host;
@@ -13,14 +13,21 @@ typedef struct {
   ngx_str_t server_name;
   ngx_str_t enabled;
   ngx_str_t measurement;
+  /*ngx_http_complex_value_t *dynamic_fields;*/
+  ngx_array_t *dynamic_fields;
 } ngx_http_influxdb_loc_conf_t;
 
 static void *ngx_http_influxdb_create_loc_conf(ngx_conf_t *conf);
 static char *ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent,
                                               void *child);
 static char *ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char *ngx_http_influxdb_dynamic_fields(ngx_conf_t *cf,
+                                              ngx_command_t *cmd, void *conf);
 static void ngx_influxdb_exit(ngx_cycle_t *cycle);
 static ngx_int_t ngx_http_influxdb_init(ngx_conf_t *conf);
+
+static inline ngx_str_t dynamic_fields_lineprotocol(void *conf,
+                                                    ngx_http_request_t *req);
 
 static ngx_http_module_t ngx_http_influxdb_module_ctx = {
     NULL,                              /* preconfiguration */
@@ -38,6 +45,10 @@ static ngx_command_t ngx_http_influxdb_commands[] = {
      NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
          NGX_CONF_1MORE,
      ngx_http_influxdb, NGX_HTTP_LOC_CONF_OFFSET, 0, NULL},
+    {ngx_string("influxdb_dynamic_fields"),
+     NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
+         NGX_CONF_1MORE,
+     ngx_http_influxdb_dynamic_fields, NGX_HTTP_LOC_CONF_OFFSET, 0, NULL},
 };
 
 ngx_module_t ngx_http_influxdb_module = {
@@ -71,8 +82,12 @@ static ngx_int_t ngx_http_influxdb_handler(ngx_http_request_t *req) {
   }
 
   ngx_http_influxdb_metric_init(req->pool, m, req, conf->server_name);
+
+  ngx_str_t dynamic_fields = dynamic_fields_lineprotocol(conf, req);
+
   ngx_int_t pushret = ngx_http_influxdb_metric_push(
-      req->pool, m, conf->host, (uint16_t)conf->port, conf->measurement);
+      req->pool, m, conf->host, (uint16_t)conf->port, conf->measurement,
+      dynamic_fields);
 
   if (pushret == INFLUXDB_METRIC_ERR) {
     ngx_log_error(
@@ -118,6 +133,7 @@ static void *ngx_http_influxdb_create_loc_conf(ngx_conf_t *conf) {
   cf->server_name.len = 0;
   cf->measurement.data = NULL;
   cf->measurement.len = 0;
+  cf->dynamic_fields = NGX_CONF_UNSET_PTR;
 
   return cf;
 }
@@ -132,6 +148,7 @@ static char *ngx_http_influxdb_merge_loc_conf(ngx_conf_t *conf, void *parent,
   ngx_conf_merge_str_value(cf->enabled, prev->enabled, "false");
   ngx_conf_merge_str_value(cf->server_name, prev->server_name, "default");
   ngx_conf_merge_str_value(cf->measurement, prev->measurement, "nginx");
+  ngx_conf_merge_ptr_value(cf->dynamic_fields, prev->dynamic_fields, NULL);
 
   return NGX_CONF_OK;
 }
@@ -181,4 +198,100 @@ static char *ngx_http_influxdb(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
   }
 
   return NGX_CONF_OK;
+}
+
+static char *ngx_http_influxdb_dynamic_fields(ngx_conf_t *cf,
+                                              ngx_command_t *cmd, void *conf) {
+  ngx_str_t *value;
+  value = cf->args->elts;
+
+  ngx_http_influxdb_loc_conf_t *ulcf = conf;
+
+  ngx_http_complex_value_t *cv;
+
+  if (ulcf->dynamic_fields == NGX_CONF_UNSET_PTR) {
+    ulcf->dynamic_fields = ngx_array_create(cf->pool, cf->args->nelts,
+                                            sizeof(ngx_http_complex_value_t));
+    if (ulcf->dynamic_fields == NULL) {
+      return NGX_CONF_ERROR;
+    }
+  }
+
+  ngx_uint_t i;
+  for (i = 1; i < cf->args->nelts; i++) {
+    cv = ngx_array_push(ulcf->dynamic_fields);
+    ngx_http_compile_complex_value_t ccv;
+    ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+    ccv.cf = cf;
+    ccv.value = &value[i];
+    ccv.complex_value = cv;
+    if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+      return NGX_CONF_ERROR;
+    }
+  }
+
+  return NGX_CONF_OK;
+}
+
+static inline ngx_str_t dynamic_fields_lineprotocol(void *conf,
+                                                    ngx_http_request_t *req) {
+
+  ngx_http_influxdb_loc_conf_t *ulcf = conf;
+  ngx_str_t dynamic_fields = {};
+
+  ngx_http_complex_value_t *value;
+  if (ulcf->dynamic_fields == NULL) {
+    return dynamic_fields;
+  }
+
+  if (ulcf->dynamic_fields->nelts == 0) {
+    return dynamic_fields;
+  }
+
+  value = ulcf->dynamic_fields->elts;
+
+  unsigned char *dfline = NULL;
+  size_t dfline_size = 0;
+
+  ngx_uint_t i;
+  for (i = 0; i < ulcf->dynamic_fields->nelts; i++) {
+    ngx_str_t current_field;
+    if (ngx_http_complex_value(req, &value[i], &current_field) != NGX_OK) {
+      continue;
+    }
+    dfline_size = dfline_size + current_field.len + ngx_strlen(",");
+  }
+
+  dfline_size = dfline_size + ngx_strlen("\0");
+
+  dfline = ngx_palloc(req->pool, dfline_size);
+
+  if (dfline == NULL) {
+    ngx_log_error(NGX_LOG_WARN, req->connection->log, 0,
+                  "Failed to allocate influxdb dynamic fields, dynamic fields "
+                  "will not be attached to metrics.");
+
+    return dynamic_fields;
+  }
+
+  ngx_uint_t j;
+  size_t offset = 0;
+  for (j = 0; j < ulcf->dynamic_fields->nelts; j++) {
+    ngx_str_t current_field;
+    if (ngx_http_complex_value(req, &value[j], &current_field) != NGX_OK) {
+      continue;
+    }
+    ngx_memcpy(dfline + offset, current_field.data, current_field.len);
+    offset = offset + current_field.len;
+
+    ngx_memcpy(dfline + offset, ",", ngx_strlen(","));
+    offset = offset + ngx_strlen(",");
+  }
+
+  ngx_memcpy(dfline + offset, "\0", ngx_strlen("\0"));
+  offset = offset + ngx_strlen("\0");
+
+  dynamic_fields.data = dfline;
+  dynamic_fields.len = dfline_size;
+  return dynamic_fields;
 }
