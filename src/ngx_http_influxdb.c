@@ -58,7 +58,7 @@ static ngx_int_t ngx_http_influxdb_handler(ngx_http_request_t *req) {
   ngx_http_influxdb_loc_conf_t *conf;
   conf = ngx_http_get_module_loc_conf(req, ngx_http_influxdb_module);
 
-  if (!ngx_strcmp(conf->enabled.data, "true") == 0) {
+  if (!(ngx_strcmp(conf->enabled.data, "true") == 0)) {
     return NGX_OK;
   }
 
