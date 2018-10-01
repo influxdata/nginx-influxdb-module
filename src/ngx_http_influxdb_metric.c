@@ -41,7 +41,7 @@ void ngx_http_influxdb_metric_init(ngx_pool_t *pool,
   metric->header_bytes_sent = req->header_size;
   metric->request_length = req->request_length;
   metric->extension = req->exten;
-  metric->uri = req->uri;
+  metric->uri = req->unparsed_uri;
   metric->status = req->headers_out.status;
   metric->bytes_sent = req->connection->sent;
   size_t bbs = req->connection->sent - req->header_size;
