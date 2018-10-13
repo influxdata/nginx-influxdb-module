@@ -46,12 +46,14 @@ Writing this in a snap!
 
 ## Configuration
 
-To configure it you just need this directive.
+To configure it you just need the `influxdb` directive.
 
 Please **be aware** that you are configuring the module to write to InfluxDB via UDP,
 this means that `host` can only be an IP address and not an hostname and that the port
 is configured to serve a database via UDP.
 
+
+### Pre-defined fields example
 
 ```
 influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures enabled=true;
@@ -60,14 +62,17 @@ influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures en
 If you don't want to expose InfluxDB via UDP you can start a Telegraf bound to `127.0.0.1`
 that is exposing UDP using the [socket listener service](https://github.com/influxdata/telegraf/tree/release-1.6/plugins/inputs/socket_listener) plugin, then you can send the data via HTTP to your InfluxDB using the [InfluxDB Output Plugin](https://github.com/influxdata/telegraf/tree/1.8.0/plugins/outputs/influxdb). The approach using telegraf on localhost has the advantage that you can "offload" requests to Influx, you can send requests in batch using a time window and that since `127.0.0.1` is on the `loopback` interface you have an MTU of `65536` that is extremely higher than the usual `1500`.
 
-Dynamic fields example
+You can find a sample configuration for InfluxDB to expose UDP in [hack/influxdb.conf](hack/influxdb.conf).
+
+### Dynamic fields example
 
 ```
+# Normally you have only this
 influxdb server_name=myserver host=127.0.0.1 port=8089 measurement=mymeasures enabled=true
 
 # If you want to use dynamic fields too
-set myvariable somecontent
-influxdb_dynamic_fields firstfield=$server_name secondfield=$myvariable;
+set namespace myapp
+influxdb_dynamic_fields namespace="$server_name" user_agent="$http_user_agent";
 ```
 
 ### Full Example

@@ -13,7 +13,6 @@ typedef struct {
   ngx_str_t server_name;
   ngx_str_t enabled;
   ngx_str_t measurement;
-  /*ngx_http_complex_value_t *dynamic_fields;*/
   ngx_array_t *dynamic_fields;
 } ngx_http_influxdb_loc_conf_t;
 
