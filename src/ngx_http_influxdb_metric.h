@@ -21,8 +21,6 @@ typedef struct {
   ngx_str_t request_time;
 } ngx_http_influxdb_metric_t;
 
-ngx_buf_t *create_temp_char_buf(ngx_pool_t *pool, size_t size);
-
 void ngx_http_influxdb_metric_init(ngx_pool_t *pool,
                                    ngx_http_influxdb_metric_t *metric,
                                    ngx_http_request_t *req,

@@ -11,7 +11,7 @@
 
 #include "ngx_http_influxdb_metric.h"
 
-ngx_buf_t *create_temp_char_buf(ngx_pool_t *pool, size_t size) {
+static ngx_buf_t *create_temp_char_buf(ngx_pool_t *pool, size_t size) {
   ngx_buf_t *b;
 
   b = ngx_calloc_buf(pool);
