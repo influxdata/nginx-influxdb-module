@@ -236,7 +236,10 @@ static inline ngx_str_t dynamic_fields_lineprotocol(void *conf,
                                                     ngx_http_request_t *req) {
 
   ngx_http_influxdb_loc_conf_t *ulcf = conf;
-  ngx_str_t dynamic_fields = {};
+  ngx_str_t dynamic_fields = {
+      .len = 0,
+      .data = NULL,
+  };
 
   ngx_http_complex_value_t *value;
   if (ulcf->dynamic_fields == NULL) {
