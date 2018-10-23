@@ -29,5 +29,6 @@ void ngx_http_influxdb_metric_init(ngx_pool_t *pool,
 ngx_int_t ngx_http_influxdb_metric_push(ngx_pool_t *pool,
                                         ngx_http_influxdb_metric_t *m,
                                         ngx_str_t host, ngx_uint_t port,
-                                        ngx_str_t measurement);
-#endif  // NGX_HTTP_INFLUXDB_METRIC_H
+                                        ngx_str_t measurement,
+                                        ngx_str_t dynamic_fields);
+#endif // NGX_HTTP_INFLUXDB_METRIC_H
