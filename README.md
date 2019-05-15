@@ -61,9 +61,26 @@ The module doesn't do any quotes escaping or check on dynamic fields for perform
 
 ## Installation
 
-## From pre-built dynamic modules
+## With dynamic modules
 
-Pre-built dynamic modules are not available (yet)
+Build dynamic module with local Nginx:
+```
+mkdir build
+pushd build
+git clone http://github.com/influxdata/nginx-influxdb-module.git
+wget -nv -O - https://nginx.org/download/nginx-1.16.0.tar.gz | tar zx
+pushd nginx-1.16.0
+eval "./configure --add-dynamic-module=../nginx-influxdb-module $(nginx -V 2>&1 >/dev/null | grep  -o '\--with.*')"
+make modules
+popd
+popd
+```
+
+Add to local Nginx:
+```
+sed -i -e "1 s/^/load_module \\/nginx-1.16.0\\/objs\\/ngx_pagespeed.so\\; \\n/;" /etc/nginx/nginx.conf
+nginx -s reload
+```
 
 ## Build the module statically with NGINX
 
@@ -78,11 +95,6 @@ make -j
 popd
 popd
 ```
-
-
-## Build the module dinamically to be loaded within NGINX
-
-Writing this in a snap!
 
 ## Configuration
 
