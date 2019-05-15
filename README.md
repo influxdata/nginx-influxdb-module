@@ -70,9 +70,9 @@ Pre-built dynamic modules are not available (yet)
 ```
 mkdir build
 pushd build
-git clone git@github.com:fntlnz/nginx-influxdb-module.git
-wget -nv -O - https://nginx.org/download/nginx-1.15.3.tar.gz | tar zx
-pushd nginx-1.15.0
+git clone http://github.com/influxdata/nginx-influxdb-module.git
+wget -nv -O - https://nginx.org/download/nginx-1.16.0.tar.gz | tar zx
+pushd nginx-1.16.0
 ./configure --add-module=../nginx-influxdb-module
 make -j
 popd
