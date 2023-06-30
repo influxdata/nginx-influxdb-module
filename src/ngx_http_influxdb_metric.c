@@ -1,3 +1,5 @@
+#include "ngx_http_influxdb_metric.h"
+
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <netinet/in.h>
@@ -8,8 +10,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
-
-#include "ngx_http_influxdb_metric.h"
 
 static ngx_buf_t *create_temp_char_buf(ngx_pool_t *pool, size_t size) {
   ngx_buf_t *b;
